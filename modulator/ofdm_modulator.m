@@ -3,12 +3,12 @@ classdef ofdm_modulator
         fft_len;
         guard_len;
         ofdm_sym_len;
-        bits;
-        constellation_syms;
-        constellation_matrix;
         guard_int;
+        ifft_samples;
         syms;
         constellation;
+        constellation_bits;
+        constellation_syms;
     end
     methods
         function obj = ofdm_modulator(fft_len, guard_len, constellation)
@@ -19,12 +19,14 @@ classdef ofdm_modulator
         end
         function obj = get_syms(obj, num_bits)
             obj.constellation = obj.constellation.get_syms(num_bits);
-            obj.bits = obj.constellation.bits;
-            obj.constellation_syms = obj.constellation.syms;
-            obj.constellation_matrix = reshape(obj.constellation_syms, obj.fft_len, length(obj.constellation_syms)/obj.fft_len);
-            obj.constellation_matrix = ifft(ifftshift(obj.constellation_matrix), obj.fft_len);
-            obj.guard_int = obj.constellation_matrix(end-obj.guard_len+1:end, :);
-            obj.syms = [obj.guard_int; obj.constellation_matrix];
+            num_bits = length(obj.constellation.bits);
+            num_constellation_syms = num_bits/log2(obj.constellation.M);
+            num_ofdm_syms = num_constellation_syms/obj.fft_len;
+            obj.constellation_bits = reshape(obj.constellation.bits, num_bits/num_ofdm_syms, num_ofdm_syms);
+            obj.constellation_syms = reshape(obj.constellation.syms, num_constellation_syms/num_ofdm_syms, num_ofdm_syms);
+            obj.ifft_samples = ifft(ifftshift(obj.constellation_syms), obj.fft_len)*sqrt(obj.fft_len);
+            obj.guard_int = obj.ifft_samples(end-obj.guard_len+1:end, :);
+            obj.syms = [obj.guard_int; obj.ifft_samples];
         end
     end
 end

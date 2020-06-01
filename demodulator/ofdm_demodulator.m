@@ -3,10 +3,10 @@ classdef ofdm_demodulator
         fft_len;
         guard_len;
         ofdm_sym_len;
-        bits;
         constellation_syms;
-        constellation_matrix;
+        constellation_bits;
         guard_int;
+        ifft_samples;
         syms;
         constellation;
     end
@@ -20,11 +20,14 @@ classdef ofdm_demodulator
         function obj = demod_sig(obj, x, scale_factor)
             sig_len = length(x);
             obj.syms = reshape(x, obj.ofdm_sym_len, sig_len/obj.ofdm_sym_len);
-            obj.constellation_matrix = obj.syms(obj.guard_len+1:end, :);
-            obj.constellation_matrix = fftshift(fft(obj.constellation_matrix, obj.fft_len));
-            obj.constellation_syms = reshape(obj.constellation_matrix, [], 1);
-            obj.constellation_syms = obj.constellation_syms*scale_factor/norm(obj.constellation_syms);
-            obj.bits = qamdemod(obj.constellation_syms, obj.constellation.M, 'OutputType', 'bit', 'UnitAveragePower', true);
+            obj.ifft_samples = obj.syms(obj.guard_len+1:end, :);
+            obj.constellation_syms = fftshift(fft(obj.ifft_samples, obj.fft_len))/sqrt(obj.fft_len);
+            obj.constellation = obj.constellation.demod_sig(obj.constellation_syms, scale_factor);
+            obj.constellation_bits = obj.constellation.bits;
+            
+            % Parallel to serial conversion
+            obj.constellation.bits = reshape(obj.constellation_bits, [], 1);
+            obj.constellation.syms = reshape(obj.constellation_syms, [], 1);
         end
     end
 end
