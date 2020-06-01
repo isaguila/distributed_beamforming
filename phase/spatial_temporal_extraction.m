@@ -12,7 +12,7 @@ rng(0, 'twister');
 %---------- System Parameters based on 802.11 set of protocols ------------
 fs     = 20e6;      % Sampling rate
 Ntx    = 4;         % Number of single-antenna transmitter nodes
-snr_db = 10;        % Channel SNR in dB
+snr_db = 15;        % Channel SNR in dB
 e      = -1;        % Coefficient from paper, e = exp(1i*pi) = -1
 A_NN   = ones(Ntx); % Matrix from paper
 
@@ -32,7 +32,7 @@ sig_model_list = {...
     'OFDM 1024-QAM'; ... % 13
     };
 
-sig_model = sig_model_list{11};
+sig_model = sig_model_list{5};
 
 if (Ntx == 4) % if 4 then use values from paper
     phase_deg = [-4.5; 108.1; -105.9; -25.5];
@@ -247,3 +247,22 @@ switch sig_model
     otherwise
         error('Not implemented yet!');
 end
+
+evm_db = 10*log10(1/length(rx.syms)*norm(rx.syms - tx.syms)^2);
+
+figure();
+plot(real(tx.syms), imag(tx.syms), 'bx', 'MarkerSize', 20);
+hold on;
+plot(real(rx.syms), imag(rx.syms), 'r.', 'MarkerSize', 10);
+legend('Tx', 'Rx');
+grid on;
+xlim([-2 2]);
+ylim([-2 2]);
+axis square;
+
+bit_errs = sum(bitxor(tx.bits, rx.bits));
+fprintf('Bit Errors:       %d\n', bit_errs);
+fprintf('Channel SNR:      %.2f dB\n', snr_db);
+fprintf('Measured SNR:     %.2f dB\n', -evm_db);
+fprintf('Theoretical Gain: %.2f dB\n', 20*log10(Ntx));
+fprintf('Measured Gain:    %.2f dB\n', -evm_db - snr_db);
