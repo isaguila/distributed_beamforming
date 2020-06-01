@@ -27,6 +27,16 @@ for n  = num_taps+1 : num_points
     w = w + mu*(real(e(n)*conj(in)) - 1i*imag(e(n)*conj(in)));
 end
 
+if (num_points < length(y))
+    for n = num_points+1:length(y)
+        % select part of training input
+        in = y(n : -1 : n-num_taps);
+        
+        % Equalize
+        z(n) = w'*in;
+    end
+end
+
 
 
 
