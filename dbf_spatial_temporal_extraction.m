@@ -37,12 +37,12 @@ mod_block = qam_modulator(M);
 demod_block = qam_demodulator(M);
 
 % Assume frequency offset ~U(-fmax, fmax)
-fmax = 500; % Set to 0 for no frequency offset
+fmax = 100; % Set to 0 for no frequency offset
 df = -fmax + 2*fmax*rand(Ntx, 1);
 df(1) = 0;
 
 % Rayleigh flat fading (one tap channels)
-h = 1/sqrt(2)*(randn(1, Ntx) + 1i*randn(1, Ntx));
+h = 1/sqrt(2)*(randn(1, Ntx) + 1i*randn(1, Ntx)); h(1) = real(h(1));
 % h = ones(1, Ntx); % Use all ones if no fading desired
 
 mod_block = mod_block.get_syms(1000*log2(M));
@@ -119,33 +119,44 @@ noise_samples = sqrt(p_noise_avg/2)*randn(sig_len, 2)*[1; 1i];
 rx.sig_coherent = sum(tx.sig_coherent, 2) + noise_samples;
 
 %--------------- Process the received signals -----------------------------
+% Remove phase offset bias from LO and channel since all transmitters 
+% align to the first antenna (i.e. constellation will be rotated if first
+% antenna has phase offset other than 0)
 rx.sig_coherent = rx.sig_coherent*exp(-1i*phase_rad(1));
+rx.sig_coherent = rx.sig_coherent*exp(-1i*angle(h(1)));
 
 %--------------- Equalize the signal --------------------------------------
-%rx.sig_coherent = lms_equalizer(rx.sig_coherent, tx.syms, length(tx.syms), 9, 0.1);
+% Need better parameters, this worsens performance!
+% rx.sig_coherent = lms_equalizer(rx.sig_coherent, tx.syms, length(tx.syms), 3, 0.1);
+
 demod_block = demod_block.demod_sig(rx.sig_coherent, sqrt(sig_len));
 rx.bits = demod_block.bits;
 rx.syms = demod_block.syms;
 
 evm_db = 10*log10(1/length(rx.syms)*norm(rx.syms - tx.syms)^2);
 
-phi = [phase_deg, phase_deg_hat];
-disp('Phase Offset Actual and Phase Compensation');
-disp(phi);
+phi_table = table(...
+    phase_deg + wrapTo180(180/pi*reshape(angle(h), size(phase_deg))), ...
+    phase_deg_hat, ...
+    'VariableNames', {'Total Phase Offset (degrees)', 'Phase Compensation (degrees)'});
+disp(phi_table);
 
 figure();
-plot(real(tx.syms), imag(tx.syms), 'bx', 'MarkerSize', 20);
+plot(real(tx.syms), imag(tx.syms), 'bx', 'MarkerSize', 25, 'LineWidth', 2);
 hold on;
 plot(real(rx.syms), imag(rx.syms), 'r.', 'MarkerSize', 10);
 legend('Tx', 'Rx');
+xlabel('In-Phase');
+ylabel('Quadrature');
+title('Ideal Constellation and Received Constellation');
 grid on;
 xlim([-2 2]);
 ylim([-2 2]);
 axis square;
 
 bit_errs = sum(bitxor(tx.bits, rx.bits));
-fprintf('Bit Errors:       %d\n', bit_errs);
-fprintf('Channel SNR:      %.2f dB\n', snr_db);
-fprintf('Measured SNR:     %.2f dB\n', -evm_db);
-fprintf('Theoretical Gain: %.2f dB\n', 20*log10(Ntx));
-fprintf('Measured Gain:    %.2f dB\n', -evm_db - snr_db);
+fprintf('Bit Errors:        %d\n', bit_errs);
+fprintf('Channel SNR:       %.2f dB\n', snr_db);
+fprintf('Measured SNR:      %.2f dB\n', -evm_db);
+fprintf('Theoretical Gain:  %.2f dB\n', 20*log10(Ntx));
+fprintf('Measured Gain:     %.2f dB\n', -evm_db - snr_db);
