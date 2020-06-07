@@ -11,7 +11,7 @@ rng(0, 'twister');
 
 %---------- System Parameters based on 802.11 set of protocols ------------
 fs     = 20e6;      % Sampling rate
-Ntx    = 4;         % Number of single-antenna transmitter nodes
+Ntx    = 20;         % Number of single-antenna transmitter nodes
 snr_db = 15;        % Channel SNR in dB
 e      = -1;        % Coefficient from paper, e = exp(1i*pi) = -1
 A_NN   = ones(Ntx); % Matrix from paper
@@ -32,7 +32,7 @@ sig_model_list = {...
     'OFDM 1024-QAM'; ... % 13
     };
 
-sig_model = sig_model_list{5};
+sig_model = sig_model_list{7};
 
 if (Ntx == 4) % if 4 then use values from paper
     phase_deg = [-4.5; 108.1; -105.9; -25.5];
@@ -47,6 +47,10 @@ end
 
 tx = struct();
 rx = struct();
+
+tx_bl = struct();
+rx_bl = struct();
+
 
 switch sig_model
     case 'Tone'
@@ -173,14 +177,19 @@ switch sig_model
         error('Not implemented yet!');
 end
 
+tx_bl.sig = tx.sig(:, 1);
+
 %----------- Calculate N0 (noise density to use for AWGN) -----------------
 sig_len = length(tx.sig);
 p_sig_avg = mean(vecnorm(tx.sig))^2/sig_len;
 p_noise_avg = p_sig_avg / 10^(snr_db/10);
 
+%---------------- baseline
+
 %------------- Non-coherent Distributed Transmit Beamforming --------------
 noise_samples = sqrt(p_noise_avg/2)*randn(sig_len, 2)*[1; 1i];
 rx.sig_noncoherent = sum(tx.sig, 2) + noise_samples;
+rx_bl.sig = tx_bl.sig + noise_samples;
 
 %--------------------- Transmit signal N times ----------------------------
 w_bb = sqrt(p_noise_avg/2)*(randn(sig_len, Ntx) + 1i*randn(sig_len, Ntx));
@@ -223,6 +232,10 @@ switch sig_model
         rx.bits(rx.syms < 0) = 0;
         rx.bits(rx.syms > 0) = 1;
     case {'4-QAM', '16-QAM', '64-QAM', '256-QAM', '1024-QAM'}
+        rx_bl.syms = rx_bl.sig*exp(-1i*phase_rad(1));
+        rx_bl.syms = rx_bl.syms*sqrt(sig_len)/norm(rx_bl.syms);
+        rx_bl.bits = qamdemod(rx_bl.syms, M, 'OutputType', 'bit', 'UnitAveragePower', true);
+        
         rx.syms = rx.sig_coherent*exp(-1i*phase_rad(1));
         rx.syms = rx.syms*sqrt(sig_len)/norm(rx.syms);
         rx.bits = qamdemod(rx.syms, M, 'OutputType', 'bit', 'UnitAveragePower', true);
@@ -249,16 +262,41 @@ switch sig_model
 end
 
 evm_db = 10*log10(1/length(rx.syms)*norm(rx.syms - tx.syms)^2);
+evm_siso = 10*log10(1/length(rx.syms)*norm(rx_bl.syms - tx.syms)^2);
+
+fsize = 14;
 
 figure();
-plot(real(tx.syms), imag(tx.syms), 'bx', 'MarkerSize', 20);
-hold on;
 plot(real(rx.syms), imag(rx.syms), 'r.', 'MarkerSize', 10);
-legend('Tx', 'Rx');
+xlabel('In-Phase', 'FontSize', fsize, 'Interpreter', 'Latex');
+ylabel('Quadrature', 'FontSize', fsize, 'Interpreter', 'Latex');
+title('Spatial Temporal Extraction', 'FontSize', fsize, 'Interpreter', 'Latex');
+legend(['EVM = ', num2str(evm_db), ' dB'], 'FontSize', fsize, 'Interpreter', 'Latex');
 grid on;
 xlim([-2 2]);
 ylim([-2 2]);
 axis square;
+set(gcf, 'color', 'w');
+
+fn = sprintf('/Users/ivan/Documents/Thesis/figures/N%d_ste_perf_%dqam', Ntx, M);
+[imageData, alpha] = export_fig(fn, '-a1', '-pdf');
+
+
+figure();
+plot(real(rx_bl.syms), imag(rx_bl.syms), 'r.', 'MarkerSize', 10);
+xlabel('In-Phase', 'FontSize', fsize, 'Interpreter', 'Latex');
+ylabel('Quadrature', 'FontSize', fsize, 'Interpreter', 'Latex');
+title('Baseline - SISO', 'FontSize', fsize, 'Interpreter', 'Latex');
+legend(['EVM = ', num2str(evm_siso), ' dB'], 'FontSize', fsize, 'Interpreter', 'Latex');
+grid on;
+xlim([-2 2]);
+ylim([-2 2]);
+axis square;
+set(gcf, 'color', 'w');
+
+fn = sprintf('/Users/ivan/Documents/Thesis/figures/N%d_ste_siso_perf_%dqam', Ntx, M);
+[imageData, alpha] = export_fig(fn, '-a1', '-pdf');
+
 
 bit_errs = sum(bitxor(tx.bits, rx.bits));
 fprintf('Bit Errors:       %d\n', bit_errs);

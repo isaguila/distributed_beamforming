@@ -19,7 +19,7 @@ snr_db = 10;        % Channel SNR in dB
 e      = -1;        % Coefficient from paper, e = exp(1i*pi) = -1
 A_NN   = ones(Ntx); % Matrix from paper
 
-M      = 16;
+M      = 4;
 
 if (Ntx == 4) % if 4 then use values from paper
     phase_deg = [-4.5; 108.1; -105.9; -25.5];
@@ -27,6 +27,8 @@ else          % Otherwise use random phase offset values
     phase_deg = -180 + 360*rand(Ntx, 1);
     phase_deg(1) = 0;
 end
+phase_deg = -180 + 360*rand(Ntx, 1);
+
 phase_rad = phase_deg*pi/180;
 
 for index = 2:Ntx
@@ -35,23 +37,24 @@ end
 
 mod_block = qam_modulator(M);
 demod_block = qam_demodulator(M);
-
-% Assume frequency offset ~U(-fmax, fmax)
-fmax = 100; % Set to 0 for no frequency offset
-df = -fmax + 2*fmax*rand(Ntx, 1);
-df(1) = 0;
-
-% Rayleigh flat fading (one tap channels)
-h = 1/sqrt(2)*(randn(1, Ntx) + 1i*randn(1, Ntx)); h(1) = real(h(1));
-% h = ones(1, Ntx); % Use all ones if no fading desired
-
-mod_block = mod_block.get_syms(1000*log2(M));
+mod_block = mod_block.get_syms(10000*log2(M));
 
 tx = struct();
 tx.bits = mod_block.bits;
 tx.syms = mod_block.syms;
 tx.sig = repmat(tx.syms, 1, Ntx)*diag(exp(1i*phase_rad));
 sig_len = length(tx.sig);
+
+% Assume frequency offset ~U(-fmax, fmax)
+fmax = 0; % Set to 0 for no frequency offset
+df = -fmax + 2*fmax*rand(Ntx, 1);
+df(1) = 0;
+
+% Rayleigh fading
+num_taps = 4;
+h = 1/sqrt(2)*(randn(num_taps, Ntx) + 1i*randn(num_taps, Ntx)); h(1) = real(h(1));  % multi tap channels
+% h = 1/sqrt(2)*(randn(1, Ntx) + 1i*randn(1, Ntx)); h(1) = real(h(1));  % one tap channels
+% h = ones(1, Ntx); % Use all ones if no fading desired
 
 %--------------- Apply Frequency Offset to Signal -------------------------
 t = (0:sig_len-1).'/fs;
@@ -61,7 +64,7 @@ end
 
 %--------------- Apply Channel to Signal ----------------------------------
 for ii = 1:Ntx
-    tx.sig(:, ii) = conv(tx.sig(:, ii), h(ii), 'same');
+    tx.sig(:, ii) = conv(tx.sig(:, ii), h(:, ii), 'same');
 end
 
 %----------- Calculate N0 (noise density to use for AWGN) -----------------
@@ -111,7 +114,7 @@ end
 
 %----- Apply Channel to Signal (assume channel has not changed fading) ----
 for ii = 1:Ntx
-    tx.sig_coherent(:, ii) = conv(tx.sig_coherent(:, ii), h(ii), 'same');
+    tx.sig_coherent(:, ii) = conv(tx.sig_coherent(:, ii), h(:, ii), 'same');
 end
 
 %---------------- Coherent Distributed Transmit Beamforming ---------------
@@ -119,7 +122,7 @@ noise_samples = sqrt(p_noise_avg/2)*randn(sig_len, 2)*[1; 1i];
 rx.sig_coherent = sum(tx.sig_coherent, 2) + noise_samples;
 
 %--------------- Process the received signals -----------------------------
-% Remove phase offset bias from LO and channel since all transmitters 
+% Remove phase offset bias from LO and channel since all transmitters
 % align to the first antenna (i.e. constellation will be rotated if first
 % antenna has phase offset other than 0)
 rx.sig_coherent = rx.sig_coherent*exp(-1i*phase_rad(1));
@@ -135,24 +138,30 @@ rx.syms = demod_block.syms;
 
 evm_db = 10*log10(1/length(rx.syms)*norm(rx.syms - tx.syms)^2);
 
-phi_table = table(...
-    phase_deg + wrapTo180(180/pi*reshape(angle(h), size(phase_deg))), ...
-    phase_deg_hat, ...
-    'VariableNames', {'Total Phase Offset (degrees)', 'Phase Compensation (degrees)'});
-disp(phi_table);
+% phi_table = table(...
+%     phase_deg + wrapTo180(180/pi*reshape(angle(h), size(phase_deg))), ...
+%     phase_deg_hat, ...
+%     'VariableNames', {'Total Phase Offset (degrees)', 'Phase Compensation (degrees)'});
+% disp(phi_table);
 
+fsize = 14;
 figure();
-plot(real(tx.syms), imag(tx.syms), 'bx', 'MarkerSize', 25, 'LineWidth', 2);
-hold on;
+% plot(real(tx.syms), imag(tx.syms), 'bx', 'MarkerSize', 25, 'LineWidth', 2);
+% hold on;
 plot(real(rx.syms), imag(rx.syms), 'r.', 'MarkerSize', 10);
-legend('Tx', 'Rx');
-xlabel('In-Phase');
-ylabel('Quadrature');
-title('Ideal Constellation and Received Constellation');
+legend(['Num Taps = ', num2str(num_taps)], 'FontSize', fsize, 'Interpreter', 'Latex');
+% legend(['EVM = ', num2str(evm_db), ' dB'], 'FontSize', fsize, 'Interpreter', 'Latex');
+xlabel('In-Phase', 'FontSize', fsize, 'Interpreter', 'Latex');
+ylabel('Quadrature', 'FontSize', fsize, 'Interpreter', 'Latex');
+title('Spatial Temporal Extraction w/ Fading Channel', 'FontSize', fsize, 'Interpreter', 'Latex');
+set(gcf, 'color', 'w');
 grid on;
 xlim([-2 2]);
 ylim([-2 2]);
 axis square;
+
+fn = sprintf('/Users/ivan/Documents/Thesis/figures/N%d_ste_fmax%d_%dqam_numTaps%d', Ntx, fmax, M, num_taps);
+[imageData, alpha] = export_fig(fn, '-a1', '-pdf');
 
 bit_errs = sum(bitxor(tx.bits, rx.bits));
 fprintf('Bit Errors:        %d\n', bit_errs);
