@@ -13,10 +13,11 @@ rng(0);
 % Time Reversal Techniques for Wireless Communications 
 % by P. Kyritsi, G. Papanicolaou, P. Eggers, A. Oprea
 %--------------------------------------------------------------------------
-
 Ntx = 10;
 M = 4;
 snr_db = 15;
+L = 1e4;
+
 
 mod_block = qam_modulator(M);
 demod_block = qam_demodulator(M);
@@ -36,7 +37,6 @@ tx_tr.sig  = repmat(mod_block.syms, 1, Ntx);
 tx_ntr.sig = repmat(mod_block.syms, 1, Ntx);
 tx_bl.sig  = mod_block.syms;
 
-L = 1e4;
 h = complex(zeros(L, Ntx));
 h_tr = complex(zeros(L, Ntx));
 
@@ -60,19 +60,19 @@ tx_bl.sig = conv(tx_bl.sig, h_bl, 'same');
  
 sig_len = length(tx_tr.sig);
 p_sig = mean(vecnorm(tx_tr.sig).^2)/sig_len;
-p_noise = p_sig / 10^(snr_db);
+p_noise = p_sig / 10^(snr_db/10);
 noise = sqrt(p_noise/2)*randn(sig_len, 2)*[1; 1i];
 rx_tr.sig = sum(tx_tr.sig, 2) + noise;
 
 sig_len = length(tx_ntr.sig);
 p_sig = mean(vecnorm(tx_ntr.sig).^2)/sig_len;
-p_noise = p_sig / 10^(snr_db);
+p_noise = p_sig / 10^(snr_db/10);
 noise = sqrt(p_noise/2)*randn(sig_len, 2)*[1; 1i];
 rx_ntr.sig = sum(tx_ntr.sig, 2) + noise;
 
 sig_len = length(tx_bl.sig);
 p_sig = mean(vecnorm(tx_bl.sig).^2)/sig_len;
-p_noise = p_sig / 10^(snr_db);
+p_noise = p_sig / 10^(snr_db/10);
 noise = sqrt(p_noise/2)*randn(sig_len, 2)*[1; 1i];
 rx_bl.sig = sum(tx_bl.sig, 2) + noise;
 
@@ -107,7 +107,7 @@ axis square;
 
 figure();
 plot(real(rx_ntr.syms), imag(rx_ntr.syms), '.', 'MarkerSize', 10);
-title('Time Reversal');
+title('Non Time Reversal');
 grid on;
 xlim([-2, 2]);
 ylim([-2, 2]);
