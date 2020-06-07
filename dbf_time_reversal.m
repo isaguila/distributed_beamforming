@@ -17,7 +17,8 @@ Ntx = 10;
 M = 4;
 snr_db = 15;
 L = 1e4;
-
+fs = 20e6;
+df = -1000 + 2000*rand(Ntx, 1);
 
 mod_block = qam_modulator(M);
 demod_block = qam_demodulator(M);
@@ -40,6 +41,8 @@ tx_bl.sig  = mod_block.syms;
 h = complex(zeros(L, Ntx));
 h_tr = complex(zeros(L, Ntx));
 
+t = (0:length(tx_tr.sig)-1).'/fs;
+
 for ii = 1:Ntx
     % Create the channel and time reversed version
     h(:, ii) = randn(L, 2)*[1; 1i];
@@ -51,11 +54,15 @@ for ii = 1:Ntx
     % Apply channel
     tx_tr.sig(:, ii) = conv(tx_tr.sig(:, ii), h(:, ii), 'same');
     tx_ntr.sig(:, ii) = conv(tx_ntr.sig(:, ii), h(:, ii), 'same');
+    
+    tx_tr.sig(:, ii) = tx_tr.sig(:, ii).*exp(1i*2*pi*df(ii)*t);
+    tx_ntr.sig(:, ii) = tx_ntr.sig(:, ii).*exp(1i*2*pi*df(ii)*t);
 end
 
 % Choose a channel for baseline SISO and apply it
 h_bl = randn(L, 2)*[1; 1i];
 tx_bl.sig = conv(tx_bl.sig, h_bl, 'same');
+tx_bl.sig = tx_bl.sig.*exp(1i*2*pi*df(1)*t);
 
  
 sig_len = length(tx_tr.sig);
