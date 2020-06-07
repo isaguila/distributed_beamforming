@@ -81,19 +81,19 @@ rx_bl.sig = sum(tx_bl.sig, 2) + noise;
 % rx_tr.sig = rx_tr.sig.*exp(-1i*phi);
 demod_block = demod_block.demod_sig(rx_tr.sig, scale_factor);
 rx_tr.syms = reshape(demod_block.syms, [], 1);
-rx_tr.evm = calc_evm(rx_tr.syms, M);
+rx_tr.evm = get_evm_qam(rx_tr.syms, M);
 rx_tr.bits = demod_block.bits;
 rx_tr.ber = sum(bitxor(rx_tr.bits, mod_block.bits));
 
 demod_block = demod_block.demod_sig(rx_ntr.sig, scale_factor);
 rx_ntr.syms = reshape(demod_block.syms, [], 1);
-rx_ntr.evm = calc_evm(rx_ntr.syms, M);
+rx_ntr.evm = get_evm_qam(rx_ntr.syms, M);
 rx_ntr.bits = demod_block.bits;
 rx_ntr.ber = sum(bitxor(rx_ntr.bits, mod_block.bits));
 
 demod_block = demod_block.demod_sig(rx_bl.sig, scale_factor);
 rx_bl.syms = reshape(demod_block.syms, [], 1);
-rx_bl.evm = calc_evm(rx_bl.syms, M);
+rx_bl.evm = get_evm_qam(rx_bl.syms, M);
 rx_bl.bits = demod_block.bits;
 rx_bl.ber = sum(bitxor(rx_bl.bits, mod_block.bits));
 
