@@ -205,6 +205,37 @@ omega_hat(index+1:end, :) = [];
 omega_est = omega_hat(index, :);
 phi_est = phi_hat(index, :);
 
+freq_est = omega_est(1);
+phase_est = phi_est(1);
+
+fsize = 14;
+N = 200;
+
+figure();
+subplot(2, 1, 2);
+x_hat = exp(1i*(freq_est*t_vec(1:N) + phase_est));
+plot(1e3*t_vec(1:N), real(x_hat));
+hold on;
+plot(1e3*t_vec(1:N), imag(x_hat));
+xlabel('Time (ms)', 'FontSize', fsize, 'Interpreter', 'Latex');
+title(['Estimated Frequency: ', num2str(freq_est/(2*pi)), ' Hz'], 'FontSize', fsize, 'Interpreter', 'Latex');
+legend('Real', 'Imag', 'FontSize', fsize, 'Interpreter', 'Latex');
+
+subplot(2, 1, 1);
+x_actual = exp(1i*(2*pi*fc*t_vec(1:N) + phi_0));
+plot(1e3*t_vec(1:N), real(x_actual));
+hold on;
+plot(1e3*t_vec(1:N), imag(x_actual));
+xlabel('Time (ms)', 'FontSize', fsize, 'Interpreter', 'Latex');
+title(['Actual Frequency: ', num2str(fc), ' Hz'], 'FontSize', fsize, 'Interpreter', 'Latex');
+legend('Real', 'Imag', 'FontSize', fsize, 'Interpreter', 'Latex');
+
+set(gcf, 'color', 'w');
+
+
+fn = sprintf('/Users/ivan/Documents/Thesis/figures/zc_freq_est');
+[imageData, alpha] = export_fig(fn, '-a1', '-pdf');
+
 epsilon = zeros(1, l_len);
 mse = zeros(1, l_len);
 

@@ -2,7 +2,7 @@ close all;
 clear;
 clc;
 
-rng(0);
+rng(0, 'twister');
 
 %--------------------------------------------------------------------------
 %------------ Distributed Beamforming with Time Reversal ------------------
@@ -13,12 +13,13 @@ rng(0);
 % Time Reversal Techniques for Wireless Communications 
 % by P. Kyritsi, G. Papanicolaou, P. Eggers, A. Oprea
 %--------------------------------------------------------------------------
-Ntx = 10;
-M = 4;
+Ntx = 100;
+M = 16;
 snr_db = 15;
-L = 1e4;
+L = 100;
 fs = 20e6;
-df = -1000 + 2000*rand(Ntx, 1);
+fmax = 50;
+df = fmax + 2*fmax*rand(Ntx, 1);
 
 mod_block = qam_modulator(M);
 demod_block = qam_demodulator(M);
@@ -55,6 +56,7 @@ for ii = 1:Ntx
     tx_tr.sig(:, ii) = conv(tx_tr.sig(:, ii), h(:, ii), 'same');
     tx_ntr.sig(:, ii) = conv(tx_ntr.sig(:, ii), h(:, ii), 'same');
     
+    % Add carrier frequency offset
     tx_tr.sig(:, ii) = tx_tr.sig(:, ii).*exp(1i*2*pi*df(ii)*t);
     tx_ntr.sig(:, ii) = tx_ntr.sig(:, ii).*exp(1i*2*pi*df(ii)*t);
 end
@@ -104,28 +106,55 @@ rx_bl.evm = get_evm_qam(rx_bl.syms, M);
 rx_bl.bits = demod_block.bits;
 rx_bl.ber = sum(bitxor(rx_bl.bits, mod_block.bits));
 
+fsize = 14;
+
 figure();
 plot(real(rx_tr.syms), imag(rx_tr.syms), '.', 'MarkerSize', 10);
-title('Time Reversal');
+xlabel('In-Phase', 'FontSize', fsize, 'Interpreter', 'Latex');
+ylabel('Quadrature', 'FontSize', fsize, 'Interpreter', 'Latex');
+title('Time Reversal', 'FontSize', fsize, 'Interpreter', 'Latex');
+legend(['Num Taps = ', num2str(L)], 'FontSize', fsize, 'Interpreter', 'Latex');
 grid on;
 xlim([-2, 2]);
 ylim([-2, 2]);
 axis square;
+set(gcf, 'color', 'w');
+
+fn = sprintf('/Users/ivan/Documents/Thesis/figures/N%d_time_reversal_%dqam_numTaps%d_fmax%d', Ntx, M, L, fmax);
+disp(fn);
+[imageData, alpha] = export_fig(fn, '-a1', '-pdf');
 
 figure();
 plot(real(rx_ntr.syms), imag(rx_ntr.syms), '.', 'MarkerSize', 10);
-title('Non Time Reversal');
+xlabel('In-Phase', 'FontSize', fsize, 'Interpreter', 'Latex');
+ylabel('Quadrature', 'FontSize', fsize, 'Interpreter', 'Latex');
+title('Non Time Reversal', 'FontSize', fsize, 'Interpreter', 'Latex');
+legend(['Num Taps = ', num2str(L)], 'FontSize', fsize, 'Interpreter', 'Latex');
 grid on;
 xlim([-2, 2]);
 ylim([-2, 2]);
 axis square;
+set(gcf, 'color', 'w');
+
+fn = sprintf('/Users/ivan/Documents/Thesis/figures/N%d_non_time_reversal_%dqam_numTaps%d_fmax%d', Ntx, M, L, fmax);
+disp(fn);
+[imageData, alpha] = export_fig(fn, '-a1', '-pdf');
 
 figure();
 plot(real(rx_bl.syms), imag(rx_bl.syms), '.', 'MarkerSize', 10);
-title('Baseline');
+xlabel('In-Phase', 'FontSize', fsize, 'Interpreter', 'Latex');
+ylabel('Quadrature', 'FontSize', fsize, 'Interpreter', 'Latex');
+title('Baseline - SISO', 'FontSize', fsize, 'Interpreter', 'Latex');
+legend(['Num Taps = ', num2str(L)], 'FontSize', fsize, 'Interpreter', 'Latex');
 grid on;
 xlim([-2, 2]);
 ylim([-2, 2]);
+axis square;
+set(gcf, 'color', 'w');
+
+fn = sprintf('/Users/ivan/Documents/Thesis/figures/N%d_time_reversal_baseline_%dqam_numTaps%d_fmax%d', Ntx, M, L, fmax);
+disp(fn);
+[imageData, alpha] = export_fig(fn, '-a1', '-pdf');
 
 disp(rx_tr.evm);
 disp(rx_ntr.evm);
